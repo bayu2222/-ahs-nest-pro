@@ -41,3 +41,8 @@ class BenchmarkRequest(BaseModel):
     counts: List[int] = [10, 20, 50, 100]
     settings: SettingsInput = SettingsInput()
     seed: int = 42
+
+
+class ImportSvgRequest(BaseModel):
+    svg: str
+    filename: Optional[str] = None

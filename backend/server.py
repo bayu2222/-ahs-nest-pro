@@ -10,6 +10,7 @@ import uuid
 from engine.api_models import (
     BenchmarkRequest,
     GenerateRequest,
+    ImportSvgRequest,
     NestRequest,
     ShapeInput,
 )
@@ -17,6 +18,11 @@ from engine.benchmark import run_benchmark
 from engine.nesting.base import NestSettings, ShapeObject
 from engine.nesting.registry import ALGORITHMS, get_algorithm
 from engine.nesting.verify import verify_spacing
+from engine.svg_import import (
+    SUPPORTED_ELEMENTS,
+    SUPPORTED_TRANSFORMS,
+    import_svg,
+)
 from engine.test_data import SHAPE_TYPES, generate_objects
 from shapely.geometry import Polygon
 
