@@ -31,11 +31,19 @@ Build V0.1 of a standalone irregular-shape nesting engine (future core of the co
 - Tested end-to-end (testing agent): backend 100%, frontend 100%.
 
 ## Known Characteristics / Backlog (future versions)
-- P1: Performance — STRtree rebuilt per placement (O(n²)); 100 objects @ step 5° ≈ 25s. Incremental index / coarser candidate pruning for V0.2.
+- P1: Performance — candidate pruning / incremental index (O(n²) per placement); 100 objects @ step 5° ≈ 15s (numpy bbox broadphase + prepared geometry; STRtree no longer used).
 - P2: No-Fit-Polygon (NFP) candidate generation for tighter packing.
 - P2: Local optimization / simulated annealing / genetic strategies via Optimizer ABC.
-- P2: SVG path import from CorelDRAW (input layer already isolated).
+- P2: SVG Import Phase C — frontend UI (upload/paste, show failures/document info) + Layout/SVG export.
 - P3: Remove unused MongoDB scaffolding.
+
+## SVG Import Phase B (backend only) — implemented
+- `engine/svg_import/importer.py` (svgelements + Shapely): elements path/rect/circle/ellipse/polygon/polyline; transforms translate/rotate/scale/matrix/skew (reified); curves flattened with `CURVE_MAX_CHORD_CM=0.05` (8–128 samples/segment).
+- Units: svgelements resolves to px at `dpi`; px→cm = 2.54/dpi (dpi per request, default 96). Physical root units (mm/cm/in/pt/pc) are exact and DPI-independent (factor calibrated from declared width). viewBox mapped onto viewport; viewBox-only → user unit = px@dpi; no size/no viewBox → content extent.
+- Convention: output cm, origin bottom-left, +Y up. Y flipped exactly once in the importer (`y_ahs = documentHeightCm − y_svg`); exterior CCW / holes CW. Engine untouched.
+- Compound paths: even-odd depth classification → holes kept as `holes` (interior rings), never separate objects; one object per SVG element (disjoint outers → largest kept + warning). Output always a valid Shapely polygon; `points` (exterior) feeds `/api/nest` as `type:'polygon'`.
+- API: `POST /api/import-svg {svg, filename?, dpi?}` → 200 `{objects[{id,index,svgType,type,points,holes,width,height,bbox,area,warnings}], importedCount, failedCount, failures, document, coordinateSystem, supported, error, filename}`; 400 `{detail:{error,failures,filename}}` on unparseable/no-geometry; 422 on invalid body. `GET /api/import-svg/capabilities`.
+- Tests: `backend/tests/test_svg_import.py` (37) + `conftest.py`; full suite 54/54.
 
 ## Notes
 V0.1 is an explicitly heuristic prototype — NOT an optimal nesting solution. Priorities honored: correctness, deterministic behavior, collision safety, easy debugging, modular architecture.

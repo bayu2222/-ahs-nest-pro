@@ -166,3 +166,63 @@ agent_communication:
     message: "Dependency-only fix: svgelements==1.9.6 added to backend/requirements.txt and installed. Backend restarted and starts cleanly. Please run backend smoke test only: GET /api/, GET /api/algorithms, POST /api/generate, POST /api/nest (check no overlap/within media/verification block), POST /api/benchmark. Also run existing pytest suite backend/tests/test_nesting_engine.py if feasible. Do NOT test frontend. Do NOT modify any code."
   - agent: "testing"
     message: "✅ COMPLETE: All backend smoke tests and regression tests PASSED. Backend startup healthy with no ModuleNotFoundError. All 6 manual smoke tests passed (root, algorithms, generate, nest with verification, determinism, benchmark). Pytest suite: 17/17 tests passed in 45.78s. The svgelements dependency fix is successful with zero regressions. No code changes were made during testing. Ready for summary and completion."
+
+# ---- Session: SVG Import Phase B (backend only) ----
+backend:
+  - task: "SVG Import Phase B - importer module (units, viewBox, transforms, curves, holes, Y-flip)"
+    implemented: true
+    working: true
+    file: "backend/engine/svg_import/importer.py, backend/engine/svg_import/__init__.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Rewrote importer: px->cm via 2.54/dpi (dpi configurable, physical units exact via calibration), viewBox deterministic, curves flattened with CURVE_MAX_CHORD_CM=0.05, compound-path holes kept as interior rings (even-odd depth via covers), one object per element, Y flipped exactly once (y_ahs = docHeightCm - y_svg), orient CCW. 37 unit/HTTP tests in tests/test_svg_import.py pass locally."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: All importer functionality working correctly. Y-flip verified (rect at y=10mm from top in 50mm page correctly positioned at bbox minY=3, maxY=4). Compound path holes detected correctly (1 hole with 4 points, area=3.0 cm²). Curves flattened properly (circle converted to 64 points). Transform (45° rotation) produces correct dimensions (width≈height≈1.4142cm, area≈1.0cm²). DPI handling: 96dpi→2.54cm, 72dpi→3.3867cm, dpi=0→422 validation error. All coordinate conversions exact."
+  - task: "POST /api/import-svg + GET /api/import-svg/capabilities endpoints"
+    implemented: true
+    working: true
+    file: "backend/server.py, backend/engine/api_models.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "ImportSvgRequest{svg, filename?, dpi=96 (gt 0, le 2400)}. 200 with objects/failures/document/coordinateSystem/supported; 400 {detail:{error,failures,filename}} for unparseable SVG or no geometry; 422 for invalid dpi. Objects' points are directly accepted by POST /api/nest as type 'polygon'."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Both endpoints working perfectly. GET /api/import-svg/capabilities returns all required elements [path,rect,circle,ellipse,polygon,polyline], transforms [rotate,translate,scale,matrix,skewX,skewY], defaultDpi=96, coordinateSystem.origin='bottom-left'. POST /api/import-svg: importedCount=3, failedCount=0 for test SVG with rect/compound-path/circle. Error handling correct: invalid SVG→400 'Could not parse SVG', no geometry→400 'No supported/valid geometry' with failures list, missing svg field→422. Round-trip to POST /api/nest successful: all 3 objects placed, verification.pass=true."
+  - task: "Nesting engine V0.1 regression (unchanged code)"
+    implemented: true
+    working: true
+    file: "backend/engine/nesting/, backend/tests/test_nesting_engine.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "git diff on engine/nesting, engine/geometry, frontend/src is empty. Full suite 54/54 passed locally (17 V0.1 + 37 SVG)."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Full pytest suite 54/54 PASSED (17 in test_nesting_engine.py + 37 in test_svg_import.py) in 46.17s. All V0.1 endpoints working: GET /api/ returns engine info, GET /api/algorithms returns 1 algorithm + 4 shape types, POST /api/generate creates 10 objects, POST /api/nest determinism verified (identical inputs→identical outputs, placedCount=9, height=143.18), POST /api/benchmark completes successfully. Zero regressions detected."
+
+test_plan:
+  current_focus:
+    - "SVG Import Phase B - importer module (units, viewBox, transforms, curves, holes, Y-flip)"
+    - "POST /api/import-svg + GET /api/import-svg/capabilities endpoints"
+    - "Nesting engine V0.1 regression (unchanged code)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Phase B backend only. Please (1) run full pytest: cd /app/backend && python -m pytest tests/ -q (pytest.ini has -n 2 --dist loadscope, do not modify); (2) smoke test POST /api/import-svg with mm rect, compound path with hole, invalid svg (expect 400), no-geometry svg (expect 400), dpi param; verify Y flip (rect at y=10mm from top in 50mm page -> bbox minY=3, maxY=4 cm); (3) feed imported points into POST /api/nest and confirm placed & verification pass; (4) regression: /api/generate, /api/nest, /api/benchmark unchanged. Do NOT test frontend. Do NOT modify code."
+  - agent: "testing"
+    message: "✅ COMPLETE: All SVG Import Phase B backend tests PASSED with exact values. Pytest: 54/54 (17 V0.1 + 37 SVG). Manual API tests: 8/8 passed including capabilities endpoint, basic import with Y-flip verification (exact bbox values confirmed), round-trip nesting (3/3 objects placed with verification), DPI handling (3 scenarios), transform rotation, error cases (3 scenarios), and V0.1 regression (5 endpoints). Y-flip convention correctly implemented (y_ahs = docHeightCm - y_svg). Holes properly detected as interior rings. Curves flattened to polygons. All coordinate conversions exact. Zero regressions. Ready for summary and completion."

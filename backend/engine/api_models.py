@@ -44,5 +44,7 @@ class BenchmarkRequest(BaseModel):
 
 
 class ImportSvgRequest(BaseModel):
-    svg: str
+    svg: str = Field(min_length=1, max_length=20_000_000)
     filename: Optional[str] = None
+    # px -> cm basis for px/unitless SVGs (physical units are DPI independent)
+    dpi: float = Field(default=96.0, gt=0, le=2400)

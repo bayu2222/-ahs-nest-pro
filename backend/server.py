@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -19,6 +19,9 @@ from engine.nesting.base import NestSettings, ShapeObject
 from engine.nesting.registry import ALGORITHMS, get_algorithm
 from engine.nesting.verify import verify_spacing
 from engine.svg_import import (
+    COORDINATE_SYSTEM,
+    CURVE_MAX_CHORD_CM,
+    DEFAULT_DPI,
     SUPPORTED_ELEMENTS,
     SUPPORTED_TRANSFORMS,
     import_svg,
@@ -155,6 +158,41 @@ async def benchmark(req: BenchmarkRequest):
         req.counts, settings, seed=req.seed, algorithm=req.settings.algorithm
     )
     return {"results": results}
+
+
+@api_router.get("/import-svg/capabilities")
+async def import_svg_capabilities():
+    return {
+        "elements": SUPPORTED_ELEMENTS,
+        "transforms": SUPPORTED_TRANSFORMS,
+        "defaultDpi": DEFAULT_DPI,
+        "curveMaxChordCm": CURVE_MAX_CHORD_CM,
+        "coordinateSystem": COORDINATE_SYSTEM,
+    }
+
+
+@api_router.post("/import-svg")
+async def import_svg_endpoint(req: ImportSvgRequest):
+    """Convert SVG text into nesting-ready polygon objects (cm, bottom-left, +Y up).
+
+    400 when the SVG cannot be parsed or contains no usable geometry.
+    200 with `objects` (+ per-element `failures`) otherwise. Each object's
+    `points` can be posted to /api/nest as {type:'polygon', points}.
+    """
+    try:
+        result = import_svg(req.svg, dpi=req.dpi)
+    except Exception as exc:  # defensive: parser must never 500
+        raise HTTPException(status_code=400, detail={
+            "error": f"SVG import failed: {exc}", "failures": [], "filename": req.filename,
+        })
+    if not result["objects"]:
+        raise HTTPException(status_code=400, detail={
+            "error": result["error"] or "No supported/valid geometry found in the SVG.",
+            "failures": result["failures"],
+            "filename": req.filename,
+        })
+    result["filename"] = req.filename
+    return result
 
 
 app.include_router(api_router)
