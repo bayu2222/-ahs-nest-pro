@@ -10,9 +10,11 @@ NOT an optimal solver. A deterministic heuristic:
 
 Performance: the authoritative spacing/overlap test runs against the real
 polygon geometry, but each placed shape is pre-buffered by `spacing` once and
-wrapped in a prepared geometry, and an STRtree provides bbox broadphase. A
-candidate is invalid iff it intersects any placed buffer (buffer(spacing) turns
-the "minimum distance" spacing rule into a fast intersection test).
+wrapped in a prepared geometry. Broadphase uses a vectorized numpy bounding-box
+fast-rejection over placed buffers (no GEOS object per candidate); only the few
+candidates whose bbox overlaps a placed buffer build real geometry and run the
+exact prepared-polygon intersection test. buffer(spacing) turns the "minimum
+distance" spacing rule into an exact intersection test.
 """
 
 from __future__ import annotations
@@ -20,9 +22,8 @@ from __future__ import annotations
 import time
 from typing import List, Optional, Tuple
 
-from shapely import STRtree
-from shapely.affinity import translate
-from shapely.geometry import Polygon, box
+import numpy as np
+from shapely import polygons as _polygons
 from shapely.prepared import prep
 
 from ..geometry import collision
@@ -57,11 +58,14 @@ class BottomLeftFill(NestingAlgorithm):
 
         order = sorted(objects, key=lambda o: (-o.area, -o.longest_dimension, o.id))
 
-        placed_polys: List[Polygon] = []        # true geometry (for area/output)
-        placed_buffers: List[Polygon] = []       # geometry grown by spacing
+        placed_polys: list = []                  # true geometry (for area/output)
+        placed_buffers: list = []                 # geometry grown by spacing
         placed_prepared = []                      # prepared buffers (fast hit test)
         placed_bboxes: List[dict] = []
-        tree: Optional[STRtree] = None
+        placed_buf_bounds: List[tuple] = []       # buffered bbox (broadphase)
+
+        # numpy views over placed_buf_bounds, rebuilt once per object
+        bminx = bminy = bmaxx = bmaxy = None
 
         for obj in order:
             rotations = []
@@ -69,7 +73,8 @@ class BottomLeftFill(NestingAlgorithm):
                 rpts = rotate_points(obj.points, angle)
                 rw, rh = bbox_size(rpts)
                 if rw <= media_w + collision.EPS:
-                    rotations.append((angle, rpts, rw, rh, Polygon(rpts)))
+                    rotations.append(
+                        (angle, rpts, rw, rh, np.asarray(rpts, dtype=float)))
             if not rotations:
                 obj.placed = False
                 failed += 1
@@ -77,10 +82,17 @@ class BottomLeftFill(NestingAlgorithm):
 
             anchors = generate_candidates(placed_bboxes, spacing)
 
+            if placed_buf_bounds:
+                _arr = np.asarray(placed_buf_bounds, dtype=float)
+                bminx = _arr[:, 0]
+                bminy = _arr[:, 1]
+                bmaxx = _arr[:, 2]
+                bmaxy = _arr[:, 3]
+
             best = None
             best_top = float("inf")
 
-            for angle, rpts, rw, rh, opoly in rotations:
+            for angle, rpts, rw, rh, base_coords in rotations:
                 for (cx, cy) in anchors:
                     if cx < -collision.EPS or cy < -collision.EPS:
                         continue
@@ -94,16 +106,22 @@ class BottomLeftFill(NestingAlgorithm):
 
                     candidates_tested += 1
 
-                    # Broadphase first: only build real geometry when a placed
-                    # buffer's bbox overlaps this candidate's bbox.
+                    # Broadphase (fast rejection): vectorized bbox-overlap test
+                    # against placed buffered boxes — no GEOS object per
+                    # candidate. The exact spacing/overlap decision below still
+                    # uses the real prepared polygon geometry. The candidate
+                    # polygon is built by a cheap numpy coordinate offset.
                     hit = None
-                    if tree is not None and placed_buffers:
-                        q = box(cx, cy, cx + rw, cy + rh)
-                        idxs = tree.query(q)
-                        if len(idxs):
-                            poly = translate(opoly, xoff=cx, yoff=cy)
-                            for i in idxs:
-                                if placed_prepared[i].intersects(poly):
+                    poly = None
+                    if bminx is not None:
+                        cmaxx = cx + rw
+                        cmaxy = cy + rh
+                        mask = ~((cmaxx < bminx) | (cx > bmaxx)
+                                 | (cmaxy < bminy) | (cy > bmaxy))
+                        if mask.any():
+                            poly = _polygons(base_coords + (cx, cy))
+                            for i in np.nonzero(mask)[0]:
+                                if placed_prepared[int(i)].intersects(poly):
                                     hit = int(i)
                                     break
 
@@ -112,8 +130,7 @@ class BottomLeftFill(NestingAlgorithm):
                             dbg.rejected.append(
                                 {"x": cx, "y": cy, "width": rw, "height": rh,
                                  "reason": "collision"})
-                            inter = translate(opoly, xoff=cx, yoff=cy).intersection(
-                                placed_buffers[hit])
+                            inter = poly.intersection(placed_buffers[hit])
                             if (not inter.is_empty
                                     and len(dbg.collisions) < _DEBUG_CAP):
                                 dbg.collisions.append(self._poly_debug(inter))
@@ -125,7 +142,7 @@ class BottomLeftFill(NestingAlgorithm):
 
                     score = self.scorer.score(cx, cy, rw, rh)
                     if best is None or score < best[0] - collision.EPS:
-                        best = (score, angle, rpts, rw, rh, cx, cy)
+                        best = (score, angle, rpts, rw, rh, cx, cy, base_coords)
                         best_top = top
 
             if best is None:
@@ -133,8 +150,8 @@ class BottomLeftFill(NestingAlgorithm):
                 failed += 1
                 continue
 
-            _, angle, rpts, rw, rh, px, py = best
-            poly = translate(Polygon(rpts), xoff=px, yoff=py)
+            _, angle, rpts, rw, rh, px, py, base_coords = best
+            poly = _polygons(base_coords + (px, py))
             placed_pts = [(round(px + x, 6), round(py + y, 6)) for x, y in rpts]
             obj.placed = True
             obj.x = round(px, 6)
@@ -150,14 +167,14 @@ class BottomLeftFill(NestingAlgorithm):
             placed_buffers.append(pbuf)
             placed_prepared.append(prep(pbuf))
             placed_bboxes.append(obj.bbox)
-            tree = STRtree(placed_buffers)
+            placed_buf_bounds.append(pbuf.bounds)
             if dbg:
                 dbg.bounding_boxes.append({"id": obj.id, **obj.bbox})
 
         used_width = max((b["maxX"] for b in placed_bboxes), default=0.0)
         used_height = max((b["maxY"] for b in placed_bboxes), default=0.0)
         placed_count = sum(1 for o in objects if o.placed)
-        used_area = sum(Polygon(o.rotated_points).area for o in objects if o.placed)
+        used_area = sum(p.area for p in placed_polys)
         denom = media_w * used_height
         utilization = (used_area / denom * 100.0) if denom > 0 else 0.0
         final_media_h = media_h if media_h != float("inf") else used_height

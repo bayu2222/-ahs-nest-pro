@@ -61,7 +61,7 @@ export default function SpacingVerification({ verification }) {
             </div>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-[#71717A] font-mono-data" data-testid="verify-note">
-            Required ≥ {v.spacing.toFixed(2)} cm between every placed polygon ·
+            Required ≥ {Number(v.spacing).toFixed(2)} cm between every placed polygon ·
             measured with Shapely polygon distance (exact geometry, not bounding box).
           </p>
         </>
