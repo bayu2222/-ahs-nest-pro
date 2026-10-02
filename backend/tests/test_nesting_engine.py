@@ -149,3 +149,110 @@ def test_benchmark(session):
         for k in ["objectCount", "processingTime", "usedHeight", "utilization",
                   "failedPlacements", "candidatesTested"]:
             assert k in row, f"missing {k} in benchmark row"
+
+
+# =========================================================================
+# Iteration 2: performance optimization + dynamic spacing verification
+# =========================================================================
+
+SETTINGS_V2 = {
+    "media_width": 120.0,
+    "media_height": None,
+    "height_mode": "auto",
+    "spacing": 0.3,
+    "rotation_step": 5.0,
+    "allow_rotation": True,
+    "max_angle": 360.0,
+    "algorithm": "bottom-left-fill",
+}
+
+
+def _gen(session, count, seed=7):
+    r = session.post(f"{API}/generate", json={"count": count, "seed": seed}, timeout=30)
+    assert r.status_code == 200
+    return r.json()["objects"]
+
+
+def _nest(session, objs, settings):
+    r = session.post(f"{API}/nest", json={"objects": objs, "settings": settings}, timeout=180)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _assert_no_overlap_and_spacing(result, spacing, mw):
+    placed = [o for o in result["objects"] if o.get("placed")]
+    polys = [Polygon(o["rotatedPoints"]) for o in placed]
+    for i in range(len(polys)):
+        minx, _, maxx, _ = polys[i].bounds
+        assert minx >= -1e-3 and maxx <= mw + 1e-3, f"out of media: {polys[i].bounds}"
+        for j in range(i + 1, len(polys)):
+            d = polys[i].distance(polys[j])
+            assert d >= spacing - 1e-3, (
+                f"spacing violation {placed[i]['id']}/{placed[j]['id']}: {d:.6f} < {spacing}"
+            )
+
+
+# ---------- verification object shape (dynamic spacing) ----------
+def test_verification_object_spacing_03(session):
+    objs = _gen(session, 20, seed=7)
+    res = _nest(session, objs, SETTINGS_V2)
+    v = res["verification"]
+    for k in ["spacing", "minDistance", "violatingPairs", "pairsChecked", "pass", "method"]:
+        assert k in v
+    assert v["method"] == "shapely-polygon-distance"
+    assert abs(v["spacing"] - 0.3) < 1e-9
+    assert v["pass"] is True
+    assert v["violatingPairs"] == 0
+    assert v["minDistance"] >= 0.3 - 1e-3
+
+
+def test_verification_object_spacing_10(session):
+    objs = _gen(session, 20, seed=7)
+    settings = {**SETTINGS_V2, "spacing": 1.0}
+    res = _nest(session, objs, settings)
+    v = res["verification"]
+    assert abs(v["spacing"] - 1.0) < 1e-9
+    assert v["pass"] is True
+    assert v["violatingPairs"] == 0
+    assert v["minDistance"] >= 1.0 - 1e-3
+
+
+# ---------- correctness at 20/50/100 ----------
+@pytest.mark.parametrize("count", [20, 50, 100])
+def test_correctness_counts(session, count):
+    objs = _gen(session, count, seed=7)
+    res = _nest(session, objs, SETTINGS_V2)
+    stats = res["stats"]
+    assert stats["placedCount"] == count, f"n={count} placed={stats['placedCount']}"
+    assert stats["failedPlacements"] == 0
+    _assert_no_overlap_and_spacing(res, SETTINGS_V2["spacing"], SETTINGS_V2["media_width"])
+    assert res["verification"]["pass"] is True
+
+
+# ---------- determinism including candidatesTested ----------
+def test_determinism_v2(session):
+    objs = _gen(session, 50, seed=7)
+    r1 = _nest(session, objs, SETTINGS_V2)
+    r2 = _nest(session, objs, SETTINGS_V2)
+    assert r1["stats"]["usedHeight"] == r2["stats"]["usedHeight"]
+    assert r1["stats"]["utilization"] == r2["stats"]["utilization"]
+    assert r1["stats"]["candidatesTested"] == r2["stats"]["candidatesTested"]
+    p1 = sorted([(o["id"], o.get("x"), o.get("y"), o.get("rotation")) for o in r1["objects"]])
+    p2 = sorted([(o["id"], o.get("x"), o.get("y"), o.get("rotation")) for o in r2["objects"]])
+    assert p1 == p2
+
+
+# ---------- benchmark 20/50/100 ----------
+def test_benchmark_v2_full(session):
+    payload = {"counts": [20, 50, 100], "settings": SETTINGS_V2, "seed": 7}
+    r = session.post(f"{API}/benchmark", json=payload, timeout=180)
+    assert r.status_code == 200
+    rows = r.json()["results"]
+    assert len(rows) == 3
+    for row, expected in zip(rows, [20, 50, 100]):
+        assert row["objectCount"] == expected
+        assert row["placedCount"] == expected, f"n={expected} placed={row.get('placedCount')}"
+        assert row["failedPlacements"] == 0
+        print(f"BENCH n={expected} time={row['processingTime']:.3f}s "
+              f"cand={row['candidatesTested']} util={row['utilization']} "
+              f"usedH={row['usedHeight']}")
