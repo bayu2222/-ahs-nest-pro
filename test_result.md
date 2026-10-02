@@ -101,3 +101,68 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+user_problem_statement: "AHS Nest Pro / AHS Nesting Engine V0.1 (FastAPI + Shapely backend, React frontend). Continuation of existing repo. Current task: fix ONLY the dependency issue that caused backend startup crash (ModuleNotFoundError: No module named 'svgelements'). No algorithm changes, no SVG import feature, no frontend changes."
+
+backend:
+  - task: "Backend startup after adding svgelements dependency"
+    implemented: true
+    working: true
+    file: "backend/requirements.txt, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added svgelements==1.9.6 to requirements.txt and installed it. Backend restarted via supervisor; log shows 'Application startup complete'. GET /api/ and GET /api/algorithms respond. Needs smoke test of all existing endpoints to confirm nesting engine V0.1 unchanged."
+      - working: true
+        agent: "testing"
+        comment: "✅ Backend startup verified. Supervisor status: RUNNING (pid 846). Logs show 'Application startup complete' with NO ModuleNotFoundError or traceback. The svgelements dependency fix is successful."
+
+  - task: "Existing nesting endpoints (/api/generate, /api/nest, /api/benchmark) regression smoke test"
+    implemented: true
+    working: true
+    file: "backend/server.py, backend/engine/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "No code changes in engine. Existing pytest suite at backend/tests/test_nesting_engine.py (15 tests, uses REACT_APP_BACKEND_URL) should still pass."
+      - working: true
+        agent: "testing"
+        comment: "✅ All endpoints working perfectly. Smoke tests: GET /api/ returns correct engine info, GET /api/algorithms returns all shape types, POST /api/generate creates 10 objects with correct structure, POST /api/nest places all objects with proper verification (0 violations, spacing=0.3, minDistance=0.3), determinism verified (identical inputs produce identical outputs), POST /api/benchmark completes successfully. Pytest suite: 17/17 tests PASSED in 45.78s including correctness tests for 20/50/100 objects. No regressions detected."
+
+frontend:
+  - task: "Frontend (unchanged)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Not modified in this task. Frontend testing not requested."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 2
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Backend startup after adding svgelements dependency"
+    - "Existing nesting endpoints (/api/generate, /api/nest, /api/benchmark) regression smoke test"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Dependency-only fix: svgelements==1.9.6 added to backend/requirements.txt and installed. Backend restarted and starts cleanly. Please run backend smoke test only: GET /api/, GET /api/algorithms, POST /api/generate, POST /api/nest (check no overlap/within media/verification block), POST /api/benchmark. Also run existing pytest suite backend/tests/test_nesting_engine.py if feasible. Do NOT test frontend. Do NOT modify any code."
+  - agent: "testing"
+    message: "✅ COMPLETE: All backend smoke tests and regression tests PASSED. Backend startup healthy with no ModuleNotFoundError. All 6 manual smoke tests passed (root, algorithms, generate, nest with verification, determinism, benchmark). Pytest suite: 17/17 tests passed in 45.78s. The svgelements dependency fix is successful with zero regressions. No code changes were made during testing. Ready for summary and completion."
