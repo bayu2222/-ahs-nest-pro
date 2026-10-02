@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Play, Shuffle, Eraser, RotateCcw, Loader2 } from "lucide-react";
+import SvgImportPanel from "@/components/SvgImportPanel";
 
 function Field({ label, children, hint }) {
   return (
@@ -45,6 +46,10 @@ export default function ControlPanel({
   hasObjects,
   debug,
   setDebug,
+  source,
+  setSource,
+  svgImport,
+  onImportSvg,
 }) {
   const update = (k, v) => setSettings((s) => ({ ...s, [k]: v }));
   const num = (v, fb) => (v === "" || isNaN(Number(v)) ? fb : Number(v));
@@ -147,31 +152,67 @@ export default function ControlPanel({
 
       {/* objects */}
       <div className="space-y-3">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-[#71717A] font-heading">Test Objects</div>
-        <Field label="Random count">
-          <Input
-            type="number"
-            className={inputCls}
-            value={count}
-            min={1}
-            max={300}
-            step={1}
-            onChange={(e) => setCount(num(e.target.value, 20))}
-            data-testid="input-object-count"
-          />
+        <div className="text-[11px] uppercase tracking-[0.2em] text-[#71717A] font-heading">Objects</div>
+        <Field label="Source">
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              className={`h-8 rounded-sm border text-[11px] uppercase tracking-wider transition-colors duration-100 ${
+                source === "random"
+                  ? "border-[#007AFF] bg-[#007AFF]/15 text-white"
+                  : "border-[#262626] bg-[#0F0F0F] text-[#A1A1AA] hover:border-[#3a3a3a]"
+              }`}
+              onClick={() => setSource("random")}
+              disabled={busy}
+              data-testid="btn-source-random"
+            >
+              Random Test
+            </button>
+            <button
+              className={`h-8 rounded-sm border text-[11px] uppercase tracking-wider transition-colors duration-100 ${
+                source === "svg"
+                  ? "border-[#007AFF] bg-[#007AFF]/15 text-white"
+                  : "border-[#262626] bg-[#0F0F0F] text-[#A1A1AA] hover:border-[#3a3a3a]"
+              }`}
+              onClick={() => setSource("svg")}
+              disabled={busy}
+              data-testid="btn-source-svg"
+            >
+              Imported SVG
+            </button>
+          </div>
         </Field>
-        <Button
-          variant="outline"
-          className="w-full h-9 rounded-sm border-[#262626] bg-[#0F0F0F] text-[#E4E4E7] hover:bg-[#1a1a1a] hover:text-white transition-colors duration-100"
-          onClick={onGenerate}
-          disabled={busy}
-          data-testid="btn-generate"
-        >
-          <Shuffle className="h-3.5 w-3.5 mr-2" /> Generate Objects
-        </Button>
+
+        {source === "random" ? (
+          <>
+            <Field label="Random count">
+              <Input
+                type="number"
+                className={inputCls}
+                value={count}
+                min={1}
+                max={300}
+                step={1}
+                onChange={(e) => setCount(num(e.target.value, 20))}
+                data-testid="input-object-count"
+              />
+            </Field>
+            <Button
+              variant="outline"
+              className="w-full h-9 rounded-sm border-[#262626] bg-[#0F0F0F] text-[#E4E4E7] hover:bg-[#1a1a1a] hover:text-white transition-colors duration-100"
+              onClick={onGenerate}
+              disabled={busy}
+              data-testid="btn-generate"
+            >
+              <Shuffle className="h-3.5 w-3.5 mr-2" /> Generate Objects
+            </Button>
+          </>
+        ) : (
+          <SvgImportPanel svgImport={svgImport} onImportSvg={onImportSvg} disabled={busy} />
+        )}
+
         {hasObjects > 0 && (
           <div className="font-mono-data text-[11px] text-[#71717A]" data-testid="object-queue-info">
-            {hasObjects} shapes queued
+            {hasObjects} {source === "svg" ? "imported" : ""} shapes queued
           </div>
         )}
       </div>

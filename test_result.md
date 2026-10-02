@@ -150,8 +150,8 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
-  run_ui: false
+  test_sequence: 3
+  run_ui: true
 
 test_plan:
   current_focus:
@@ -226,3 +226,33 @@ agent_communication:
     message: "Phase B backend only. Please (1) run full pytest: cd /app/backend && python -m pytest tests/ -q (pytest.ini has -n 2 --dist loadscope, do not modify); (2) smoke test POST /api/import-svg with mm rect, compound path with hole, invalid svg (expect 400), no-geometry svg (expect 400), dpi param; verify Y flip (rect at y=10mm from top in 50mm page -> bbox minY=3, maxY=4 cm); (3) feed imported points into POST /api/nest and confirm placed & verification pass; (4) regression: /api/generate, /api/nest, /api/benchmark unchanged. Do NOT test frontend. Do NOT modify code."
   - agent: "testing"
     message: "✅ COMPLETE: All SVG Import Phase B backend tests PASSED with exact values. Pytest: 54/54 (17 V0.1 + 37 SVG). Manual API tests: 8/8 passed including capabilities endpoint, basic import with Y-flip verification (exact bbox values confirmed), round-trip nesting (3/3 objects placed with verification), DPI handling (3 scenarios), transform rotation, error cases (3 scenarios), and V0.1 regression (5 endpoints). Y-flip convention correctly implemented (y_ahs = docHeightCm - y_svg). Holes properly detected as interior rings. Curves flattened to polygons. All coordinate conversions exact. Zero regressions. Ready for summary and completion."
+
+# ---- Session: SVG Import Phase C (frontend UI) ----
+frontend:
+  - task: "SVG Import UI: source selector (Random Test / Imported SVG), Import SVG button, states, preview, nest with imported objects"
+    implemented: true
+    working: true
+    file: "frontend/src/components/SvgImportPanel.jsx, ControlPanel.jsx, NestingStudio.jsx, NestCanvas.jsx, lib/svgImport.js, lib/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added btn-source-random/btn-source-svg, btn-import-svg + hidden input-svg-file (.svg only), states svg-import-empty/loading/success/error, svg-import-count, canvas svg-preview-layer with preview-object-<id>, imported objects feed the same /api/nest pipeline via toNestPayload. Random generation untouched. Jest unit tests 13/13 pass (src/lib/svgImport.test.js). Backend pytest 54/54 unchanged."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: All 13 E2E test scenarios PASSED. (1) Initial state: Random Test active, Generate button visible, Run Nesting disabled. (2) SVG source switch: panel appears, empty state correct, Generate hidden. (3) Non-SVG rejection: photo.png correctly rejected with 'not an SVG' error + toast. (4) Parse error: broken.svg shows 'Could not parse SVG' error. (5) No-geometry error: textonly.svg shows 'No supported/valid geometry' error. (6) Valid import: parts.svg imported 4 objects, 1 skipped (line), document info shows '10.00 × 5.00 cm · unit mm', queue info '4 imported shapes queued', button text changed to 'Import another SVG'. (7) Preview: All 4 preview objects visible (plate, frame, disc, tri), frame path has fill-rule='evenodd' for hole support, preview label shows 'PREVIEW · 4 imported · not nested'. (8) Nesting: All 4 objects placed, spacing verdict PASS, stats correct (placed=4, failed=0, objects=4), preview layer removed after nesting, network request verified objects have type='polygon' with correct IDs. (9) Debug mode: Candidates stat shows 94 when enabled. (10) Random regression: Generated 20 shapes, nested successfully with PASS verdict, placed count=20. (11) SVG persistence: Previously imported SVG persists when switching back, Clear button works correctly. (12) Reset: Source reset to Random, defaults restored. (13) Console: Only 2 expected 400 errors from invalid file tests. Zero critical issues. Screenshots captured for preview and nested states."
+metadata:
+  run_ui: true
+test_plan:
+  current_focus:
+    - "SVG Import UI: source selector (Random Test / Imported SVG), Import SVG button, states, preview, nest with imported objects"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+agent_communication:
+  - agent: "main"
+    message: "Phase C frontend. User explicitly requested E2E UI testing. Test files prepared at /tmp/inspect/svg/{parts.svg, photo.png, broken.svg, textonly.svg}. Verify: idle state, non-svg rejection, backend 400 errors shown, success count=4 for parts.svg (1 <line> skipped), preview on canvas, Run Nesting with imported objects -> metrics + spacing PASS, debug mode, Random Test still works, Clear/Reset. Do NOT modify code."
+  - agent: "testing"
+    message: "✅ COMPLETE: All 13 E2E test scenarios PASSED with zero critical issues. SVG Import Phase C UI is fully functional. All data-testid attributes correctly implemented. Key verifications: (1) Source selector toggle works correctly, (2) File validation rejects non-SVG files with proper error messages, (3) Backend errors (parse/no-geometry) displayed correctly to user, (4) Valid SVG import shows all metadata (filename, count, skipped elements, document dimensions, unit info), (5) Preview layer renders all 4 imported objects with correct styling (frame has evenodd fill-rule for holes), (6) Nesting pipeline works with imported objects (all 4 placed, spacing PASS, network request verified type='polygon'), (7) Debug mode functional (candidates stat populated), (8) Random generation regression test passed (20 objects generated and nested successfully), (9) State persistence works (imported SVG persists when switching sources), (10) Clear and Reset buttons work correctly. Console shows only 2 expected 400 errors from invalid file tests. Ready for summary and completion."

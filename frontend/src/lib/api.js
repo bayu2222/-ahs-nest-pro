@@ -22,4 +22,11 @@ export const api = {
     const { data } = await client.post("/benchmark", { counts, settings, seed });
     return data.results;
   },
+  // Phase C: forward raw SVG text; the backend returns cm geometry (bottom-left, +Y up).
+  async importSvg(svg, filename, dpi) {
+    const body = { svg, filename };
+    if (dpi) body.dpi = dpi;
+    const { data } = await client.post("/import-svg", body);
+    return data;
+  },
 };

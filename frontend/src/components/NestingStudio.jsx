@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Box, Boxes } from "lucide-react";
 import { api } from "@/lib/api";
+import { importErrorMessage, readFileText, toNestPayload, validateSvgFile } from "@/lib/svgImport";
 import ControlPanel from "@/components/ControlPanel";
 import StatsPanel from "@/components/StatsPanel";
 import SpacingVerification from "@/components/SpacingVerification";
@@ -25,6 +26,8 @@ const DEFAULT_DEBUG = {
   showRejected: false,
   showCollisions: true,
 };
+
+const DEFAULT_SVG_IMPORT = { status: "idle", fileName: null, data: null, error: null };
 
 function toPayload(settings) {
   return {
@@ -50,6 +53,45 @@ export default function NestingStudio() {
   const [benchResults, setBenchResults] = useState(null);
   const seedRef = useRef(42);
 
+  // Phase C: object source. `objects` keeps the random test set (unchanged
+  // behaviour); imported SVG geometry lives in svgImport.data.objects. The
+  // active queue feeds the SAME nesting pipeline either way.
+  const [source, setSource] = useState("random"); // "random" | "svg"
+  const [svgImport, setSvgImport] = useState(DEFAULT_SVG_IMPORT);
+  const svgObjects = svgImport.data?.objects || [];
+  const activeObjects = source === "svg" ? svgObjects : objects;
+
+  const handleSourceChange = (next) => {
+    if (next === source) return;
+    setSource(next);
+    setResult(null);
+  };
+
+  const handleImportSvg = async (file) => {
+    const check = validateSvgFile(file);
+    if (!check.ok) {
+      setSvgImport({ status: "error", fileName: file?.name || null, data: null, error: check.error });
+      setResult(null);
+      toast.error("Invalid file", { description: check.error });
+      return;
+    }
+    try {
+      setSvgImport({ status: "loading", fileName: file.name, data: null, error: null });
+      setResult(null);
+      const text = await readFileText(file);
+      const data = await api.importSvg(text, file.name);
+      setSvgImport({ status: "success", fileName: file.name, data, error: null });
+      setSource("svg");
+      toast.success(`Imported ${data.importedCount} object${data.importedCount === 1 ? "" : "s"}`, {
+        description: data.failedCount ? `${data.failedCount} element(s) skipped · ${file.name}` : file.name,
+      });
+    } catch (e) {
+      const msg = importErrorMessage(e);
+      setSvgImport({ status: "error", fileName: file.name, data: null, error: msg });
+      toast.error("SVG import failed", { description: msg });
+    }
+  };
+
   const handleGenerate = async () => {
     try {
       setBusy(true);
@@ -67,14 +109,8 @@ export default function NestingStudio() {
   };
 
   const runNest = async (useDebug) => {
-    if (!objects.length) return;
-    const payload = objects.map((o) => ({
-      id: o.id,
-      type: o.type,
-      width: o.width,
-      height: o.height,
-      points: o.points,
-    }));
+    if (!activeObjects.length) return;
+    const payload = toNestPayload(activeObjects);
     const data = await api.nest(payload, toPayload(settings), useDebug);
     setResult(data);
     return data;
@@ -104,7 +140,7 @@ export default function NestingStudio() {
   // Re-run with debug data when debug mode is switched on and a layout exists.
   const prevDebug = useRef(false);
   useEffect(() => {
-    if (debug.enabled && !prevDebug.current && objects.length && result) {
+    if (debug.enabled && !prevDebug.current && activeObjects.length && result) {
       runNest(true).catch(() => {});
     }
     prevDebug.current = debug.enabled;
@@ -112,7 +148,11 @@ export default function NestingStudio() {
   }, [debug.enabled]);
 
   const handleClear = () => {
-    setObjects([]);
+    if (source === "svg") {
+      setSvgImport(DEFAULT_SVG_IMPORT);
+    } else {
+      setObjects([]);
+    }
     setResult(null);
     toast("Canvas cleared");
   };
@@ -124,6 +164,8 @@ export default function NestingStudio() {
     setResult(null);
     setBenchResults(null);
     setDebug(DEFAULT_DEBUG);
+    setSource("random");
+    setSvgImport(DEFAULT_SVG_IMPORT);
     toast("Reset to defaults");
   };
 
@@ -197,9 +239,13 @@ export default function NestingStudio() {
                   onClear={handleClear}
                   onReset={handleReset}
                   busy={busy}
-                  hasObjects={objects.length}
+                  hasObjects={activeObjects.length}
                   debug={debug}
                   setDebug={setDebug}
+                  source={source}
+                  setSource={handleSourceChange}
+                  svgImport={svgImport}
+                  onImportSvg={handleImportSvg}
                 />
               </TabsContent>
               <TabsContent value="benchmark" className="p-4 mt-0">
@@ -230,10 +276,21 @@ export default function NestingStudio() {
               result={result}
               settings={settings}
               debug={debug}
+              preview={
+                source === "svg" && !result && svgImport.status === "success" && svgObjects.length
+                  ? { objects: svgObjects, document: svgImport.data?.document, fileName: svgImport.fileName }
+                  : null
+              }
               emptyHint={
-                objects.length
-                  ? `${objects.length} shapes queued — press "Run Nesting"`
-                  : 'No objects. Press "Generate Objects" to create a test set.'
+                source === "svg"
+                  ? svgObjects.length
+                    ? `${svgObjects.length} imported shapes previewed at their SVG positions — press "Run Nesting"`
+                    : svgImport.status === "error"
+                      ? "SVG import failed — fix the file and import again."
+                      : 'No SVG imported. Press "Import SVG" to load geometry.'
+                  : objects.length
+                    ? `${objects.length} shapes queued — press "Run Nesting"`
+                    : 'No objects. Press "Generate Objects" to create a test set.'
               }
             />
           </div>

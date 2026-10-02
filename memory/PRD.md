@@ -34,8 +34,15 @@ Build V0.1 of a standalone irregular-shape nesting engine (future core of the co
 - P1: Performance — candidate pruning / incremental index (O(n²) per placement); 100 objects @ step 5° ≈ 15s (numpy bbox broadphase + prepared geometry; STRtree no longer used).
 - P2: No-Fit-Polygon (NFP) candidate generation for tighter packing.
 - P2: Local optimization / simulated annealing / genetic strategies via Optimizer ABC.
-- P2: SVG Import Phase C — frontend UI (upload/paste, show failures/document info) + Layout/SVG export.
+- P2: Layout / SVG export of the nested result (same cm, bottom-left convention).
 - P3: Remove unused MongoDB scaffolding.
+
+## SVG Import Phase C (frontend UI) — implemented
+- `ControlPanel`: "Objects → Source" segmented control **Random Test | Imported SVG** (`btn-source-random` / `btn-source-svg`). Random generation unchanged.
+- `SvgImportPanel.jsx`: hidden `<input type=file accept=".svg,image/svg+xml">` + "Import SVG" button; states idle / loading / success (file name, imported count, skipped count + failures, document size/unit) / error (clear message from backend `detail.error`).
+- `lib/svgImport.js` (pure, Jest-tested 13/13): `validateSvgFile`, `readFileText`, `importErrorMessage`, `toNestPayload`, `previewExtent`, `ringsToPathD`. No unit conversion in the frontend.
+- `NestingStudio`: `source` + `svgImport` state; `activeObjects = source==='svg' ? imported : random` feeds the SAME `/api/nest` pipeline via `toNestPayload` (`{id,type:'polygon',width,height,points}`); Clear/Reset aware of source.
+- `NestCanvas`: `preview` prop renders imported geometry at its backend cm coordinates (evenodd path → holes visible) with "PREVIEW · n imported · not nested" label; widens the view if the document is wider than the media. Existing metrics / spacing verification / debug overlays reused as-is after nesting.
 
 ## SVG Import Phase B (backend only) — implemented
 - `engine/svg_import/importer.py` (svgelements + Shapely): elements path/rect/circle/ellipse/polygon/polyline; transforms translate/rotate/scale/matrix/skew (reified); curves flattened with `CURVE_MAX_CHORD_CM=0.05` (8–128 samples/segment).
