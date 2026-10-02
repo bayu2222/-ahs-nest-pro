@@ -1,0 +1,118 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 4: Swiss & High-Contrast (Technical/Brutalist variant)",
+  "emotional_tone": "Precision, Command-Center, Analytical, Authority",
+  "typography": {
+    "strategy": "The 'Old Money Tech' variant adapted for engineering",
+    "primary_heading_font": "IBM Plex Sans",
+    "body_font": "Inter",
+    "monospace_data_font": "JetBrains Mono",
+    "rules": {
+      "headings": "Tight letter spacing (tracking-tight), medium to bold weights, never centered. Max fluid size text-4xl.",
+      "body": "Clean and legible (text-sm to text-base).",
+      "labels": "Uppercase, tiny, wide spacing (tracking-[0.2em]).",
+      "data": "Use JetBrains Mono for all numeric readouts, benchmark times, and coordinate data for precision alignment."
+    }
+  },
+  "colors": {
+    "backgrounds": {
+      "app_base": "#0A0A0A",
+      "panel_base": "#141414",
+      "canvas_bg": "#1A1A1A"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "accents": {
+      "primary_brand": "#007AFF",
+      "success": "#22C55E",
+      "warning": "#EAB308",
+      "error": "#FF3B30",
+      "debug_bbox": "#FF00FF",
+      "debug_rejected": "#FF3B30",
+      "debug_candidate": "#007AFF"
+    },
+    "borders": {
+      "default": "#262626",
+      "focus": "#007AFF"
+    },
+    "rules": "No generic full-screen gradients. Use solid colors. Never use pure #000000 without texture. Text must meet APCA contrast ratios."
+  },
+  "surfaces": {
+    "panels": "The 'Technical' Look (Grid Borders). Use border-collapse style layout where possible. Container background is solid. 1px borders (#262626) to expose the grid skeleton. No soft drop shadows.",
+    "controls": "Flat solid backgrounds, 1px subtle border, sharp or slight rounding (max 4px radius). High contrast on hover/focus.",
+    "canvas": "Solid dark gray (#1A1A1A) with an SVG grid pattern (10px increments, 1px line, stroke-white/10) to represent the mm/cm ruler.",
+    "overlays": "Glassmorphism with heavy blur (backdrop-blur-xl bg-black/80) and 1px inner stroke for modals or dropdowns. No fully transparent overlays."
+  },
+  "spacing_and_layout": {
+    "strategy": "High Density Grid (Mode B for Dashboards) - The Bento Protocol",
+    "rules": [
+      "Use tight gaps (gap-4 or gap-6) to maximize screen real estate for the canvas.",
+      "Base grid: grid-cols-1 lg:grid-cols-12.",
+      "Span logic: Left Sidebar (Controls/Stats/Benchmarks) spans 3 or 4 columns. Main Canvas spans 8 or 9 columns.",
+      "Every pixel must be utilized. Use h-full on children to ensure they stretch to match their neighbors.",
+      "Paddings on panels should be p-4 or p-6."
+    ]
+  },
+  "components": {
+    "ui_library": "shadcn/ui (customized for sharp technical look)",
+    "specific_overrides": {
+      "button": "Sharp edges (rounded-sm), flat colors, hover effect introduces subtle lift or high contrast text.",
+      "card": "Go cardless or use strictly rectangular dense styles with 1px border. No shadows.",
+      "inputs": "Solid dark background, 1px border, focus state must use primary brand color.",
+      "tabs": "Override fixed height (h-9 to h-auto), sharp underline or solid active state indicator."
+    },
+    "custom_components": {
+      "svg_canvas": "The main visualizer must be a responsive SVG element. It should scale to fit the viewport (auto-fit mode) and include an SVG-based cm ruler around the edges. It must render polygons with their unique IDs and rotation angles.",
+      "debug_overlays": "Toggleable layers inside the SVG for bounding boxes, candidate positions, rejected positions, and collision areas."
+    }
+  },
+  "motion": {
+    "rules": [
+      "Minimalist micro-interactions. Feedback driven.",
+      "Use fast, sharp transitions (e.g., transition: all 0.1s ease-in-out) for buttons and inputs.",
+      "Avoid universal transitions (no 'transition: all' on grid items or canvas objects).",
+      "SVG nested objects can have a slight scale-in entrance animation if performance allows, but for large benchmarks (100+ objects), disable motion."
+    ]
+  },
+  "accessibility": {
+    "rules": [
+      "All interactive elements MUST include a data-testid attribute (e.g., data-testid='nesting-run-button').",
+      "Respect prefers-reduced-motion.",
+      "Focus states must have a 2px solid ring (#007AFF) and higher contrast than the default state."
+    ]
+  },
+  "visual_enhancers": {
+    "ruler": "A precise cm/mm ruler on the X and Y axes of the SVG canvas, rendered using SVG <line> and <text> elements with monospace font.",
+    "data_readouts": "Use a monospace font with a 'digital meter' aesthetic for real-time stats (e.g., processing time, utilization %).",
+    "debug_mode": "Use semi-transparent, highly contrasting neon colors for debug visualizations (e.g., neon pink for bounding boxes, bright cyan for candidates)."
+  },
+  "instructions_to_main_agent": [
+    "Build the dashboard using React, Tailwind CSS, and shadcn/ui.",
+    "The layout should be a high-density bento grid: Sidebar on the left for controls/stats (approx 30% width), and the main SVG canvas on the right (approx 70% width).",
+    "Implement the SVG canvas carefully: it must support a 'Fixed Height' vs 'Auto Height' view mode. The canvas should scale its viewBox to fit the container while maintaining aspect ratio.",
+    "The visualization must include a ruler (ticks every X cm) along the top and left edges.",
+    "Add a control panel with: Generate random objects, Nest, Clear, Reset, Spacing input, Rotation step input, Media width/height inputs.",
+    "Add a Benchmark panel to run 10/20/50/100 objects and display a results table with time, used height, utilization %, and failures.",
+    "Add a Debug mode toggle with layered overlays (bounding boxes, candidate positions, rejected positions, collision areas).",
+    "Follow the typography guidelines strictly: IBM Plex Sans for headings, Inter for body, JetBrains Mono for data.",
+    "Ensure the theme is explicitly Dark Mode, utilizing the color palette defined above.",
+    "Do NOT center align the app container. Maintain a left-aligned, structured F-pattern reading flow.",
+    "Ensure all interactive elements have data-testid attributes."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic outputs. Make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy, using 1px borders rather than soft shadows for this technical tool.",
+    "You MUST NOT apply universal transition (e.g., transition: all). Always add transitions for specific properties.",
+    "You MUST NOT center align the app container.",
+    "Always use modern, sharp button styles with interaction animations and relevant colors.",
+    "NEVER use AI assistant Emoji characters (like \ud83e\udd16\ud83e\udde0, etc.) for icons. Use lucide-react or Phosphor icons.",
+    "Use 2-3x more spacing within panels to prevent cramped text, while maintaining tight gaps between grid panels.",
+    "Subtle grain textures, custom cursors, and loading animations separate good from extraordinary.",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Use sonner for toast notifications."
+  ]
+}
