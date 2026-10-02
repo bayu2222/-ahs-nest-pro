@@ -5,6 +5,7 @@ import { Box, Boxes } from "lucide-react";
 import { api } from "@/lib/api";
 import ControlPanel from "@/components/ControlPanel";
 import StatsPanel from "@/components/StatsPanel";
+import SpacingVerification from "@/components/SpacingVerification";
 import BenchmarkPanel from "@/components/BenchmarkPanel";
 import NestCanvas from "@/components/NestCanvas";
 
@@ -246,6 +247,7 @@ export default function NestingStudio() {
             </div>
             <StatsPanel stats={result?.stats} />
           </div>
+          <SpacingVerification verification={result?.verification} />
           <div className="border border-[#262626] bg-[#141414] rounded-sm p-4">
             <div className="text-[11px] uppercase tracking-[0.2em] text-[#71717A] font-heading mb-2">
               Notes

@@ -16,7 +16,9 @@ from engine.api_models import (
 from engine.benchmark import run_benchmark
 from engine.nesting.base import NestSettings, ShapeObject
 from engine.nesting.registry import ALGORITHMS, get_algorithm
+from engine.nesting.verify import verify_spacing
 from engine.test_data import SHAPE_TYPES, generate_objects
+from shapely.geometry import Polygon
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -122,6 +124,14 @@ async def nest(req: NestRequest):
             "algorithm": algo.name,
         },
     }
+
+    placed_polys = [
+        Polygon(o.rotated_points)
+        for o in outcome.objects
+        if o.placed and o.rotated_points
+    ]
+    response["verification"] = verify_spacing(placed_polys, settings.spacing)
+
     if outcome.debug is not None:
         response["debug"] = {
             "candidates": outcome.debug.candidates,
