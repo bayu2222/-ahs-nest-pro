@@ -217,6 +217,18 @@ def test_verification_object_spacing_10(session):
     assert v["minDistance"] >= 1.0 - 1e-3
 
 
+def test_verification_object_spacing_05(session):
+    objs = _gen(session, 20, seed=7)
+    settings = {**SETTINGS_V2, "spacing": 0.5}
+    res = _nest(session, objs, settings)
+    v = res["verification"]
+    assert abs(v["spacing"] - 0.5) < 1e-9
+    assert v["pass"] is True
+    assert v["violatingPairs"] == 0
+    assert v["minDistance"] >= 0.5 - 1e-3
+
+
+
 # ---------- correctness at 20/50/100 ----------
 @pytest.mark.parametrize("count", [20, 50, 100])
 def test_correctness_counts(session, count):

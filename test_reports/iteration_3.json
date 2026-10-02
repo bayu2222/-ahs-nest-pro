@@ -1,0 +1,14 @@
+{
+  "summary": "Verified dynamic 'Required >= X.XX cm' spacing text in SpacingVerification panel is derived from backend-echoed verification.spacing. Backend: 17/17 pytest cases pass (incl. new test_verification_object_spacing_05). Frontend: ran spacing 0.3/0.5/1.0 against live app; required-spacing-value renders '0.30', '0.50', '1.00' respectively; verdict PASS; min distance = spacing; 0 violations; no '0.38' anywhere. Benchmark n=20 util=60.6566 usedH=54.929238 cand=19136, n=50 util=70.2398 usedH=130.249267 cand=166757 -- byte-identical to baseline.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_nesting_engine.py", "/app/test_reports/pytest/nesting_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": ["/app/backend/tests/test_nesting_engine.py (added test_verification_object_spacing_05)"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (3/3 spacing scenarios)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "SpacingVerification renders requiredText = Number(v.spacing).toFixed(2) inside data-testid 'required-spacing-value'. Backend /api/nest attaches verification.spacing exactly as requested. All consistency checks confirmed. Previous user report of '0.38' was stale cache."
+}
