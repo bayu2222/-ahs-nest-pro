@@ -5,7 +5,7 @@ import pytest
 import requests
 from shapely.geometry import Polygon
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ahs-nest-prototype.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ahs-project-audit.preview.emergentagent.com').rstrip('/')
 API = f"{BASE_URL}/api"
 
 SETTINGS_AUTO = {
