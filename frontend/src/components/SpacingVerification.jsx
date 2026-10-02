@@ -6,6 +6,13 @@ export default function SpacingVerification({ verification }) {
   const has = v && v.minDistance !== null && v.minDistance !== undefined;
   const pass = v?.pass;
 
+  // Single source of truth: the exact spacing the backend echoed for THIS
+  // result (== the value sent in the nest request). Always formatted live, so
+  // the displayed requirement can never drift from the verified spacing.
+  const requiredSpacing =
+    v && Number.isFinite(Number(v.spacing)) ? Number(v.spacing) : null;
+  const requiredText = requiredSpacing !== null ? requiredSpacing.toFixed(2) : "—";
+
   return (
     <div className="border border-[#262626] bg-[#141414] rounded-sm p-4" data-testid="spacing-verification">
       <div className="flex items-center justify-between mb-3">
@@ -61,7 +68,7 @@ export default function SpacingVerification({ verification }) {
             </div>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-[#71717A] font-mono-data" data-testid="verify-note">
-            Required ≥ {Number(v.spacing).toFixed(2)} cm between every placed polygon ·
+            Required ≥ <span data-testid="required-spacing-value">{requiredText}</span> cm between every placed polygon ·
             measured with Shapely polygon distance (exact geometry, not bounding box).
           </p>
         </>
